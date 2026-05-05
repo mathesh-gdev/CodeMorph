@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeMorph // AI Code Explainer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0d0d0d;
+            --surface: #141414;
+            --accent: #00FFD1;
+            --text-main: #e0e0e0;
+            --text-dim: #666666;
+            --border: #222222;
+            --font-mono: 'JetBrains Mono', monospace;
+            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: var(--font-mono);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        header {
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(to right, #0d0d0d, #141414);
+        }
+
+        .logo {
+            font-size: 1.2rem;
+            font-weight: 700;
+            letter-spacing: -0.05em;
+            color: var(--accent);
+            text-transform: uppercase;
+        }
+
+        .logo span {
+            color: var(--text-main);
+            opacity: 0.5;
+            font-weight: 300;
+        }
+
+        /* Main Layout */
+        main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            overflow: hidden;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                overflow: auto;
+                height: auto;
+                min-height: 100vh;
+            }
+            main {
+                display: flex;
+                flex-direction: column;
+                height: auto;
+                overflow: visible;
+            }
+            .left-panel {
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+                height: 50vh;
+                min-height: 300px;
+            }
+            .right-panel {
+                height: auto;
+                min-height: 300px;
+                padding: 1.5rem;
+            }
+            header {
+                padding: 1rem;
+            }
+            .logo {
+                font-size: 1rem;
+            }
+            .controls {
+                position: sticky;
+                bottom: 0;
+                padding: 0.75rem 1rem;
+                flex-wrap: wrap;
+                z-index: 1000;
+            }
+            #playback-status {
+                width: 100%;
+                text-align: center;
+                margin-top: 0.5rem;
+                order: 3;
+            }
+        }
+
+        .left-panel {
+            border-right: 1px solid var(--border);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .right-panel {
+            background-color: var(--surface);
+            display: flex;
+            flex-direction: column;
+            padding: 2rem;
+            position: relative;
+        }
+
+        /* Code Editor / View */
+        #code-input {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            color: var(--text-main);
+            border: none;
+            padding: 2rem;
+            font-family: var(--font-mono);
+            font-size: 14px;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+            tab-size: 4;
+        }
+
+        #code-display {
+            display: none;
+            padding: 2rem;
+            font-size: 14px;
+            line-height: 1.6;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .code-line {
+            display: grid;
+            grid-template-columns: 3rem 1fr;
+            padding: 4px 0;
+            opacity: 0.3;
+            transition: var(--transition);
+            cursor: pointer;
+        }
+
+        .code-line:hover {
+            opacity: 0.7;
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .code-line.active {
+            opacity: 1;
+            background: rgba(0, 255, 209, 0.08);
+            border-left: 2px solid var(--accent);
+        }
+
+        .line-num {
+            color: var(--text-dim);
+            text-align: right;
+            padding-right: 1.5rem;
+            user-select: none;
+        }
+
+        /* Explanation Panel */
+        .explanation-header {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-dim);
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+
+        #explanation-content {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: var(--text-main);
+            font-weight: 300;
+        }
+
+        #explanation-content strong {
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        /* Controls */
+        .controls {
+            padding: 1rem 2rem;
+            border-top: 1px solid var(--border);
+            background-color: var(--surface);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        button {
+            background-color: var(--accent);
+            color: var(--bg);
+            border: none;
+            padding: 0.6rem 1.5rem;
+            font-family: var(--font-mono);
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        button:hover {
+            filter: brightness(1.2);
+            box-shadow: 0 0 20px rgba(0, 255, 209, 0.3);
+        }
+
+        button:disabled {
+            background-color: var(--text-dim);
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        #reset-btn {
+            background: transparent;
+            color: var(--text-dim);
+            border: 1px solid var(--border);
+        }
+
+        #reset-btn:hover {
+            color: var(--text-main);
+            border-color: var(--text-dim);
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid var(--bg);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            display: none;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Overlays & Utility */
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(13, 13, 13, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 100;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .overlay p {
+            margin-bottom: 1rem;
+            color: var(--accent);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">CodeMorph <span>// Morphing Code to Clarity</span></div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button id="settings-btn" class="nav-btn" style="padding: 0.4rem;" title="API Settings">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.72l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+            <div style="font-size: 0.7rem; color: var(--text-dim)">v2.0.0 - GEMINI POWERED</div>
+        </div>
+    </header>
+
+    <div id="settings-panel" style="display: none; background: rgba(255,255,255,0.05); margin: 0 1rem 1rem 1rem; padding: 1rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+        <label style="display: block; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05rem;">Custom Gemini API Key</label>
+        <div style="display: flex; gap: 0.5rem;">
+            <input type="password" id="custom-api-key" placeholder="Paste your key here..." style="flex: 1; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 0.4rem; color: #fff; font-size: 0.8rem;">
+            <button id="save-key-btn" class="nav-btn" style="background: var(--accent); color: #000;">Save</button>
+        </div>
+        <p style="font-size: 0.6rem; color: var(--text-dim); margin-top: 0.5rem;">If left empty, the app will use the system-level key from the Secrets panel.</p>
+    </div>
+
+    <main>
+        <section class="left-panel">
+            <textarea id="code-input" placeholder="// Paste your code here..."></textarea>
+            <div id="code-display"></div>
+            
+            <div id="loading-overlay" class="overlay">
+                <div class="spinner" style="display: block; width: 40px; height: 40px; border-width: 4px; margin-bottom: 2rem;"></div>
+                <p>ANALYZING ARCHITECTURE</p>
+                <div style="font-size: 0.7rem; opacity: 0.5;">Querying Gemini API...</div>
+            </div>
+        </section>
+
+        <section class="right-panel">
+            <div class="explanation-header">System Explanation Panel</div>
+            <div id="explanation-content">
+                <span style="opacity: 0.3">Waiting for initialization...</span>
+            </div>
+        </section>
+    </main>
+
+    <footer class="controls">
+        <button id="analyze-btn">
+            <span class="spinner"></span>
+            Analyze Code
+        </button>
+        
+        <div id="playback-controls" style="display: none; align-items: center; gap: 0.5rem;">
+            <button id="prev-btn" class="nav-btn">Prev</button>
+            <button id="next-btn" class="nav-btn">Next</button>
+        </div>
+
+        <button id="reset-btn" style="display: none;">New Analysis</button>
+        
+        <div id="playback-status" style="margin-left: auto; font-size: 0.7rem; color: var(--text-dim);"></div>
+    </footer>
+
+    <script type="module">
+        import { GoogleGenAI, Type } from "@google/genai";
+
+        // --- CONSTANTS & CONFIG ---
+        const LINE_DURATION = 1500; // 1.5 seconds
+
+        // --- ELEMENTS ---
+        const codeInput = document.getElementById('code-input');
+        const codeDisplay = document.getElementById('code-display');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const playbackControls = document.getElementById('playback-controls');
+        const expContent = document.getElementById('explanation-content');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const statusText = document.getElementById('playback-status');
+        const spinner = analyzeBtn.querySelector('.spinner');
+
+        const settingsBtn = document.getElementById('settings-btn');
+        const settingsPanel = document.getElementById('settings-panel');
+        const customKeyInput = document.getElementById('custom-api-key');
+        const saveKeyBtn = document.getElementById('save-key-btn');
+
+        let currentAnalysisData = [];
+        let currentIndex = -1;
+
+        // --- INIT ---
+        const savedKey = localStorage.getItem('GEMINI_API_KEY');
+        if (savedKey) customKeyInput.value = savedKey;
+
+        // --- CORE FUNCTIONS ---
+
+        async function fetchAnalysis(code) {
+            // Priority: LocalStorage -> process.env
+            let apiKey = localStorage.getItem('GEMINI_API_KEY');
+            if (!apiKey) apiKey = process.env.GEMINI_API_KEY;
+            
+            if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey === "undefined" || apiKey === "") {
+                throw new Error("Gemini API Key is not configured. Please enter your own key in the Settings (gear icon) or set it in the AI Studio Secrets panel.");
+            }
+
+            try {
+                const ai = new GoogleGenAI({ apiKey });
+                const response = await ai.models.generateContent({
+                    model: "gemini-2.0-flash",
+                    contents: `Explain this code line-by-line:\n\n${code}`,
+                    config: {
+                        systemInstruction: "You are a code explainer. The user will paste code. Return ONLY a JSON array where each object has: { \"line\": <line number>, \"code\": <the actual line>, \"explanation\": <plain English explanation of what this line does> }. No markdown blocks, no backticks, just raw JSON. Ensure every line of code is represented in the array.",
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    line: { type: Type.NUMBER },
+                                    code: { type: Type.STRING },
+                                    explanation: { type: Type.STRING }
+                                },
+                                required: ["line", "code", "explanation"]
+                            }
+                        }
+                    }
+                });
+
+                if (!response.text) {
+                    throw new Error("No analysis result returned from Gemini.");
+                }
+
+                return JSON.parse(response.text.trim());
+            } catch (error) {
+                console.error("Gemini Error:", error);
+                
+                let message = error.message || "Failed to analyze code.";
+                if (message.includes("API key not valid") || message.includes("403") || message.includes("401")) {
+                    message = "Invalid or missing API key. Please check your 'Secrets' panel and ensure 'AI Studio Free Tier' is selected with a green checkmark, then refresh the page.";
+                }
+                
+                throw new Error(message);
+            }
+        }
+
+        function prepareUIForPlayback(linesData) {
+            currentAnalysisData = linesData;
+            codeInput.style.display = 'none';
+            codeDisplay.style.display = 'block';
+            codeDisplay.innerHTML = '';
+            
+            linesData.forEach((item, index) => {
+                const lineDiv = document.createElement('div');
+                lineDiv.className = 'code-line';
+                lineDiv.id = `line-${index}`;
+                
+                // Add click listener for manual navigation
+                lineDiv.addEventListener('click', () => {
+                    showLine(index);
+                });
+
+                const num = document.createElement('span');
+                num.className = 'line-num';
+                num.textContent = item.line || (index + 1);
+                
+                const code = document.createElement('span');
+                code.className = 'line-text';
+                code.textContent = item.code;
+                
+                lineDiv.appendChild(num);
+                lineDiv.appendChild(code);
+                codeDisplay.appendChild(lineDiv);
+            });
+
+            analyzeBtn.style.display = 'none';
+            resetBtn.style.display = 'flex';
+            playbackControls.style.display = 'flex';
+            
+            // Start at first line
+            showLine(0);
+        }
+
+        function showLine(index) {
+            if (!currentAnalysisData || index < 0 || index >= currentAnalysisData.length) return;
+            
+            currentIndex = index;
+            const data = currentAnalysisData[index];
+
+            // Update UI state
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            const currentLineElement = document.getElementById(`line-${index}`);
+            if (currentLineElement) {
+                currentLineElement.classList.add('active');
+                currentLineElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            // Explanation update with simple fade
+            expContent.style.opacity = '0';
+            setTimeout(() => {
+                expContent.innerHTML = `<strong>Lines ${data.line || (index + 1)}:</strong><br>${data.explanation}`;
+                expContent.style.opacity = '1';
+                expContent.style.transition = 'opacity 0.2s ease';
+            }, 50);
+
+            statusText.textContent = `STEP ${index + 1} OF ${currentAnalysisData.length}`;
+            
+            // Button states
+            prevBtn.disabled = (index === 0);
+            nextBtn.disabled = (index === currentAnalysisData.length - 1);
+        }
+
+        function resetApp() {
+            currentAnalysisData = [];
+            currentIndex = -1;
+            codeInput.style.display = 'block';
+            codeDisplay.style.display = 'none';
+            analyzeBtn.style.display = 'flex';
+            resetBtn.style.display = 'none';
+            playbackControls.style.display = 'none';
+            expContent.innerHTML = '<span style="opacity: 0.3">Waiting for initialization...</span>';
+            statusText.textContent = '';
+            analyzeBtn.disabled = false;
+            spinner.style.display = 'none';
+        }
+
+        // --- EVENT LISTENERS ---
+
+        analyzeBtn.addEventListener('click', async () => {
+            const code = codeInput.value.trim();
+            if (!code) {
+                alert("Please paste some code first.");
+                return;
+            }
+
+            analyzeBtn.disabled = true;
+            spinner.style.display = 'block';
+            loadingOverlay.style.display = 'flex';
+
+            try {
+                const analysisData = await fetchAnalysis(code);
+                loadingOverlay.style.display = 'none';
+                prepareUIForPlayback(analysisData);
+            } catch (error) {
+                console.error(error);
+                loadingOverlay.style.display = 'none';
+                expContent.innerHTML = `<span style="color: #ff5555">Error: ${error.message}</span>`;
+                analyzeBtn.disabled = false;
+                spinner.style.display = 'none';
+                
+                if (error.message.includes("API Key") || error.message.includes("apiKey") || error.message.includes("configured")) {
+                    alert("Note: Please ensure 'GEMINI_API_KEY' is set to 'AI Studio Free Tier' in the Secrets panel (top right). If it is already set, try refreshing the page.");
+                }
+            }
+        });
+
+        resetBtn.addEventListener('click', resetApp);
+
+        prevBtn.addEventListener('click', () => showLine(currentIndex - 1));
+        nextBtn.addEventListener('click', () => showLine(currentIndex + 1));
+
+        // Settings Logic
+        settingsBtn.addEventListener('click', () => {
+            const isVisible = settingsPanel.style.display === 'block';
+            settingsPanel.style.display = isVisible ? 'none' : 'block';
+        });
+
+        saveKeyBtn.addEventListener('click', () => {
+            const key = customKeyInput.value.trim();
+            if (key) {
+                localStorage.setItem('GEMINI_API_KEY', key);
+                alert("API Key saved! It will be used for your next analysis.");
+            } else {
+                localStorage.removeItem('GEMINI_API_KEY');
+                alert("Custom key cleared. App will now use system defaults.");
+            }
+            settingsPanel.style.display = 'none';
+        });
+
+        // Tab support for textarea
+        codeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const start = codeInput.selectionStart;
+                const end = codeInput.selectionEnd;
+                codeInput.value = codeInput.value.substring(0, start) + "\t" + codeInput.value.substring(end);
+                codeInput.selectionStart = codeInput.selectionEnd = start + 1;
+            }
+        });
+
+    </script>
+</body>
+</html>
