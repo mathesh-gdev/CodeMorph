@@ -18,4 +18,3 @@ View your app in AI Studio: https://ai.studio/apps/e2715eef-cbb7-4db2-92c0-03f91
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
-"# CodeMorph" 

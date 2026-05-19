@@ -1,0 +1,6 @@
+{
+  "name": "CodeMorph",
+  "description": "A developer-centric tool that explains code line-by-line using AI with a smooth, high-contrast playback interface.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["ai_analysis"]
+}
